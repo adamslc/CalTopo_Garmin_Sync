@@ -4,15 +4,16 @@ import requests
 import xml.etree.ElementTree as ET
 
 class Tracker:
-    def __init__(self, group, id):
+    def __init__(self, group, id, name):
         self.group = group
         self.id = id
+        self.name = name
         self.last_coords = {'lat': None, 'lng': None}
         self.coord_update_time = None
         self.coord_send_time = None
 
     def post_coords(self):
-        logging.info(f'Posting coordinates to CalTopo for {self.group}-{self.id}')
+        logging.info(f'Posting coordinates to CalTopo for {self.name} ({self.group}-{self.id})')
         if self.coord_update_time == None:
             logging.warning('Coordinates have not been initalized. Aborting.')
             return
@@ -30,11 +31,32 @@ class Tracker:
         if not resp.status_code == 200:
             logging.warning('CalTopo returned status code {resp.status_code}.')
 
+    # This does not work because I cannnot authenticate to CalTopo. There is a possible
+    # solution in the sartopo_python package, but I am not going to persure that at this
+    # time...
+    def create_livetrack(self, map_id):
+        logging.info(f'Creating LiveTrack for {self.name} ({self.group}-{self.id}) on map {map_id}.')
+        payload = {'properties': {
+            'title': self.name,
+            'folderId': None,
+            'deviceId': f'FLEET:{self.group}-{self.id}',
+            'stroke-width': 1,
+            'stroke-opacity': 1,
+            'stroke': '#00CD00',
+            'pattern': 'solid'}}
+        resp = requests.post(
+            'https://caltopo.com/api/v1/map/PAU16/LiveTrack',
+            data = payload)
+
+        print(resp.headers)
+
+        if not resp.status_code == 200:
+            logging.warning('CalTopo returned status code {resp.status_code}.')
+
 
 class GarminTracker(Tracker):
     def __init__(self, group, id, name, mapshare_code):
-        super().__init__(group, id)
-        self.name = name
+        super().__init__(group, id, name)
         self.mapshare_code = mapshare_code
 
     def _namespace_tag(self, tag):
@@ -84,6 +106,10 @@ def main():
     trackers = [
         GarminTracker('LCASJS', 'Amanda', 'Amanda Mercer', 'ZVV23'),
     ]
+
+    # map_id = 'PAU16'
+    # for tracker in trackers:
+    #     tracker.create_livetrack(map_id)
 
     while True:
         logging.info('Starting location updates...')
